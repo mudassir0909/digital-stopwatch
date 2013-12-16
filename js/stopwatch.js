@@ -1,4 +1,25 @@
 (function(){
+  /*
+    polyfills for IE8
+  */
+  if(!Array.prototype.forEach){
+    Array.prototype.forEach = function(callback){
+      for(var i=0; i<this.length; i++){
+        callback(this[i]);
+      }      
+    }
+  }
+
+  if(!Array.prototype.map){
+    Array.prototype.map = function(callback){
+      var items = [];
+      for(var i=0; i<this.length; i++){
+        items.push(callback(this[i]));
+      }
+      return items;
+    }
+  }
+
   var secondInMilliseconds = 1000;
   var minuteInMilliseconds = 60*secondInMilliseconds;
   var hourInMilliseconds = 60*minuteInMilliseconds;
@@ -23,20 +44,31 @@
       return number;
     }
   }
+  var extractTime = function(timeInMilliseconds){
+    var hours = extractHours(timeInMilliseconds);
+    timeInMilliseconds -= hours*hourInMilliseconds;
+    var minutes = extractMinutes(timeInMilliseconds);
+    timeInMilliseconds -= minutes*minuteInMilliseconds;
+    var seconds = extractSeconds(timeInMilliseconds);
+    timeInMilliseconds -= seconds*secondInMilliseconds;
+    var milliseconds = timeInMilliseconds;
+    return {hours: hours, minutes: minutes, seconds: seconds, milliseconds: milliseconds};
+  }
 
   // Lap object which gives the time elapsed between two given laps
   var Lap = function(netTime, previousLap){
     this.previousLap = previousLap;
     this.netTime = netTime; //netTime is in milliseconds
   };
+
   Lap.prototype = {
     militaryTime: function(timeInMilliseconds){     
-      var milliseconds = extractMilliseconds(timeInMilliseconds);
-      var seconds = extractSeconds(timeInMilliseconds);
-      var minutes = extractMinutes(timeInMilliseconds);
-      var hours = extractHours(timeInMilliseconds);
       var timeSeparator = ":";
-      return [pad(hours), pad(minutes), pad(seconds), pad(milliseconds/10)].join(timeSeparator);
+      var time = extractTime(timeInMilliseconds);
+      time.milliseconds = time.milliseconds/10;
+      return ['hours', 'minutes', 'seconds', 'milliseconds'].map(function(property){
+        return pad(time[property]);
+      }).join(timeSeparator);
     },
     splitString: function(){
       if(this.previousLap != null){
@@ -49,15 +81,16 @@
   }
 
   var StopWatch = window.StopWatch = function(options){
+    if(options == null){
+      options = {}
+    }
+    
     var _this = this;
     var callbackProperties = ['callback', 'callbackTarget', 'lapCallback', 'lapCallbackTarget'];
     var netTime = hours = minutes = seconds = milliseconds = 0;
     var running = false;
     var laps = [];
-    if(options == null){
-      options = {}
-    }
-
+    
     // Initializing callbacks & its targets
     callbackProperties.forEach(function(property){
       if(options[property] != null){
@@ -65,6 +98,7 @@
       }
     });
 
+    // getter methods
     this.running = function(){
       return running;
     };
@@ -83,6 +117,10 @@
     this.netTime = function(){
       return netTime;
     };
+
+    /*
+      returns military time
+    */
     this.militaryTime = function(){
       return [pad(hours), pad(minutes), pad(seconds), pad(milliseconds/10)].join(":");
     };
@@ -152,10 +190,12 @@
       Useful to initialize time for a given time in milliseconds also invokes timeDidChange()
     */
     var initializeTimer = function(timeInMilliseconds){
-      milliseconds = extractMilliseconds(timeInMilliseconds);
-      seconds = extractSeconds(timeInMilliseconds);
-      minutes = extractMinutes(timeInMilliseconds);
-      hours = extractHours(timeInMilliseconds);
+      var time = extractTime(timeInMilliseconds);
+      hours = time.hours;
+      minutes = time.minutes;
+      seconds = time.seconds;
+      milliseconds = time.milliseconds;
+      netTime = timeInMilliseconds;
       timeDidChange();
       return _this;
     };
